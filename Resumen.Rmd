@@ -111,7 +111,141 @@ prueba_media <- pb2gen(tiempo ~ algoritmo, data = datos, est = "mean", nboot = b
 cat("Resultado al utilizar media como estimador \n")
 print(prueba_media)
 
+set.seed(135)
+
+prueba_mediana <- pb2gen(tiempo ~ algoritmo, data = datos, est = "median", nboot = bootstrap)
+
+cat("Resultado al utilizar mediana como estimador \n")
+print(prueba_mediana)
+
+```
+## Prueba de Yuen para 2 muestras pareadas
+
+```{r}
+library(WRS2)
 
 
+#Ejemplo
+
+a <- c(25.1,25.2,25.3,25.4,25.5,25.6,25.7,25.8,25.9,26.0
+       ,26.1,26.2,26.3,26.4,26.5,26.6,26.7,26.8,26.9,27.0,
+       27.1,27.2,27.3,27.4,27.5,27.6,27.7,27.8,27.9,28.0,28.4,
+       28.5,29.0,29.8,30.2,31.8,31.9,33.3,33.7)
+
+b <- c(24.1,24.2,24.3,24.4,24.5,24.6,24.7,24.8,24.9,25.0,
+       25.1,25.2,25.3,25.4,25.5,25.6,25.7,25.8,25.9,26.0,26.1,
+       26.2,26.3,27.1,27.2,27.3,27.4,27.5,27.6,27.7,27.8,27.9,28.0
+       ,28.1,28.2,28.3,30.0,30.1,30.2)
+
+#Aplicar prueba para muestras pareadas
+
+gama <- 0.2
+yuend(a, b, tr = gamma)
+
+```
+## Comparaciones de una via para multiples grupos independientes
+
+El paquete WRS2 ofrece diferentes alternativas a ANOVA de una via para muestras independientes es util para cuando los tamaño de las muestrasn son muy diferentes o no se cumple la homocedasticidad.
+
+Para esto se utiliza t1way que es un procedimiento como el ANOVA pero con medias truncadas y para el analisis PostHoc es con lincon, para posthoc con bootstrap en con mcppb20.
+
+Otra opcion es med1way que realiza un ANOVA iterativo pero este no cuenta con analisis PostHoc
+
+```{r}
+library(WRS2)
+
+#Matriz de datos
+
+a <- c(25.1, 25.2, 25.3, 25.3, 25.4, 25.4, 25.5, 25.5, 25.6, 25.8, 25.8, 25.9, 25.9, 26.0, 26.0, 26.2, 26.2, 26.3, 26.4, 26.5, 26.5, 26.6, 26.7, 26.7, 26.9, 27.0, 27.1, 27.3, 27.8, 28.4, 28.5, 29.0, 29.8, 30.2, 31.8, 31.9, 33.3, 33.7)
+
+b <- c(24.1, 24.4, 24.4, 24.5, 24.7, 24.8, 24.8, 25.1, 25.2, 25.2, 25.3, 25.4, 25.7, 25.7, 25.7, 26.3, 26.4, 26.5, 27.2, 27.7, 28.3, 28.4, 28.4, 28.6, 28.7, 29.6, 29.9, 30.1, 30.5)
+
+c <- c(24.5, 24.5, 24.5, 24.5, 24.5, 24.5, 24.6, 24.6, 24.6, 24.6, 24.7, 24.7, 24.7, 24.7, 24.8, 25.0, 25.0, 25.0, 25.2, 25.2, 25.2, 25.5, 25.5, 25.7, 25.9, 26.2, 26.5, 26.5, 26.7, 27.0, 29.2, 29.9, 30.1)
+
+tiempo <- c(a, b, c)
+algoritmo <- c(rep("A", length(a)), rep("B", length(b)), rep("C", length(c)))
+datos <- data.frame(tiempo, algoritmo)
+
+# Fijar nivel de significación.
+alfa <- 0.05
+
+# Comparar los diferentes algoritmos usando medias truncadas.
+cat("Comparación entre grupos usando medias truncadas\n\n")
+gamma <- 0.2
+
+set.seed(666)
+
+medias_truncadas <- t1way(tiempo ~ algoritmo, data = datos, tr = gamma, alpha = alfa)
+
+
+print(medias_truncadas)
+
+set.seed(666)
+muestras <- 999
+
+cat("Post hoc iterativo\n\n")
+
+post_hoc <- lincon(tiempo ~ algoritmo, data = datos, tr = gamma, alpha = alfa)
+
+print(post_hoc)
+
+cat("Post hoc con bootstrap\n\n")
+set.seed(666)
+boot <- t1waybt(tiempo ~ algoritmo, data = datos, tr = gamma, nboot = muestras, alpha = alfa)
+
+print(boot)
+
+
+set.seed(666)
+post_hoc_2 <- mcppb20(tiempo ~ algoritmo, data = datos, tr = gamma, nboot = muestras, alpha = alfa)
+
+print(post_hoc_2)
+
+```
+## Comparaciones de una via para multiples grupos correlacionados
+
+Es util cuando los datos violan la condicion de esferecidad 
+
+Para esto la funcion es rmanova y para el post hoc es rmmcp. Aparte para incorporar bootstraping tenemos rmanovab y el post hoc seria con pairdepb
+
+```{r}
+library(WRS2)
+library(tidyverse)
+
+# Construir data frame.
+X <- c(32.0, 32.0, 32.0, 32.0, 32.1, 32.1, 32.1, 32.2,32.3, 32.3, 32.5,
+       32.7, 32.7, 32.7, 33.1, 33.4, 33.9, 34.1, 34.2, 34.5, 36.0, 36.6, 
+       36.7, 37.2, 38.0)
+
+Y <- c(33.0, 33.0, 33.0, 33.0,33.3, 33.3, 33.3, 33.3, 33.5, 
+       33.6, 33.7, 33.9, 33.9, 34.2, 34.2, 34.3, 34.3, 34.3, 34.4, 34.4, 
+       34.5, 34.6, 36.4, 38.9, 40.2)
+
+Z <- c(32.0, 32.2, 32.5, 32.6, 32.7, 32.7, 32.7, 33.0, 33.2, 33.4, 33.6, 
+       33.6, 33.9, 34.1, 34.2, 34.4, 34.4, 34.5, 34.6, 34.7, 36.3, 36.6, 
+       36.7, 38.9, 39.2)
+
+instancia <- 1:length(X)
+datos <- data.frame(instancia, X, Y, Z)
+
+#Llevar data frame a formato largo
+
+datos_largo <- datos %>% pivot_longer( c("X", "Y", "Z"), names_to = "algoritmo", values_to = "tiempo")
+
+datos[["algoritmo"]] <- factor(datos[["algoritmo"]])
+
+# Fijar nivel de significación.
+alfa <- 0.05
+
+# Aplicarl alternativa robusta a ANOVA de una via con muestras correlacionadas
+gamma <- 0.2
+
+prueba <- rmanova(y = datos[["tiempo"]], groups = datos[["algoritmo"]], blocks = datos[["instancia"]], tr = gamma)
+
+print(prueba)
+
+post_hoc <- rmmcp(y = datos[["tiempo"]], groups = datos[["algoritmo"]], blocks = datos[["instancia"]], tr = gamma, alpha = alfa)
+
+print(post_hoc)
 ```
 
