@@ -213,11 +213,11 @@ library(WRS2)
 library(tidyverse)
 
 # Construir data frame.
-X <- c(32.0, 32.0, 32.0, 32.0, 32.1, 32.1, 32.1, 32.2,32.3, 32.3, 32.5,
+X <- c(32.0, 32.0, 32.0, 32.0, 32.1, 32.1, 32.1, 32.2, 32.3, 32.3, 32.5,
        32.7, 32.7, 32.7, 33.1, 33.4, 33.9, 34.1, 34.2, 34.5, 36.0, 36.6, 
        36.7, 37.2, 38.0)
 
-Y <- c(33.0, 33.0, 33.0, 33.0,33.3, 33.3, 33.3, 33.3, 33.5, 
+Y <- c(33.0, 33.0, 33.0, 33.0, 33.3, 33.3, 33.3, 33.3, 33.5, 
        33.6, 33.7, 33.9, 33.9, 34.2, 34.2, 34.3, 34.3, 34.3, 34.4, 34.4, 
        34.5, 34.6, 36.4, 38.9, 40.2)
 
@@ -228,24 +228,120 @@ Z <- c(32.0, 32.2, 32.5, 32.6, 32.7, 32.7, 32.7, 33.0, 33.2, 33.4, 33.6,
 instancia <- 1:length(X)
 datos <- data.frame(instancia, X, Y, Z)
 
-#Llevar data frame a formato largo
-
+# Llevar data frame a formato largo
 datos_largo <- datos %>% pivot_longer( c("X", "Y", "Z"), names_to = "algoritmo", values_to = "tiempo")
 
-datos[["algoritmo"]] <- factor(datos[["algoritmo"]])
+# Convertir columna algoritmo en factor
+datos_largo[["algoritmo"]] <- factor(datos_largo[["algoritmo"]])
 
 # Fijar nivel de significación.
 alfa <- 0.05
 
-# Aplicarl alternativa robusta a ANOVA de una via con muestras correlacionadas
+# Aplicar alternativa robusta a ANOVA de una vía con muestras correlacionadas
 gamma <- 0.2
 
-prueba <- rmanova(y = datos[["tiempo"]], groups = datos[["algoritmo"]], blocks = datos[["instancia"]], tr = gamma)
+prueba <- rmanova(y = datos_largo[["tiempo"]], groups = datos_largo[["algoritmo"]], blocks = datos_largo[["instancia"]], tr = gamma)
 
 print(prueba)
 
-post_hoc <- rmmcp(y = datos[["tiempo"]], groups = datos[["algoritmo"]], blocks = datos[["instancia"]], tr = gamma, alpha = alfa)
+post_hoc <- rmmcp(y = datos_largo[["tiempo"]], groups = datos_largo[["algoritmo"]], blocks = datos_largo[["instancia"]], tr = gamma, alpha = alfa)
 
 print(post_hoc)
+
 ```
+
+
+# Remuestreo
+
+Es una buena alternativa para cuando cuando se necesita inferir sobre parametros distintos de la media o proporcion o bien cuando no se cumplen las condicionees necesarias de alguna prueba.
+## Bootstraping
+
+### Bootstraping para una muestra
+
+Para esto tenemos boot el cual genera la distribucion de bootstrap y boo.ci que calcula los intervalos de confianza. Otra opcion que no requiere la implementacion de funcion de calculo de medias es bootES.
+
+```{r}
+library(boot)
+library(bootES)
+
+#Muestra inicial para el calculo de la media e histograma
+
+muestra <- c(79,75,84,75,94,82,76,90,79,80)
+datos <- data.frame(muestra)
+
+#Cantidad de remuestreos
+B <- 2000
+alfa <- 0.05
+
+# Funcion para calcular el estadistico: media de la muestra
+media <- function(valores, i){
+  mean(valores[i])
+}
+
+#Contruir la distribuccion con boot
+set.seed(432)
+distribucion_b <- boot(muestra, statistic = media, R = B)
+
+#Grafico de la distribucion de boostrap
+cat("Distribución de bootstrap con Boot\n")
+print(distribucion_b)
+plot(distribucion_b)
+
+#Intervalo de confianza
+
+ics <- boot.ci(distribucion_b, type = c("norm", "perc", "bca"), conf = 1 - alfa)
+
+cat("Intervalos de confianza con Boot.ci\n")
+print(ics)
+
+#Contruir la distribuccion con bootES
+set.seed(432)
+distribucion_b_es <- bootES(muestra,R = B, ci.type="bca", ci.conf = 1-alfa, plot = TRUE)
+
+#Bootstrap con BootES
+cat("Distribución de bootstrap con BootES\n")
+print(distribucion_b_es)
+
+```
+Pero para concluir sobre esta hay que desplazarla para que sea representativa de la hipotesis nula
+
+```{r}
+library(boot)
+library(bootES)
+
+#Muestra inicial para el calculo de la media e histograma
+
+muestra <- c(79,75,84,75,94,82,76,90,79,80)
+valor_observado <- mean(muestra)
+datos <- data.frame(muestra)
+
+#Cantidad de remuestreos
+B <- 2000
+alfa <- 0.05
+
+# Funcion para calcular el estadistico: media de la muestra
+media <- function(valores, i){
+  mean(valores[i])
+}
+
+#Contruir la distribuccion con boot
+set.seed(432)
+distribucion_b <- boot(muestra, statistic = media, R = B)
+
+#Desplazar la distribucion bootstrap para que se centre en el valor nulo
+# RECORDAR QUE ESTO ES PARA H0 = X, Ha > X
+valor_nulo <- 75
+desplazamiento <- mean(distribucion_b[["t"]]) - valor_nulo
+distribucion_nula <- distribucion_b[["t"]] - desplazamiento
+
+#El valor de P
+
+p <- (sum(distribucion_nula > valor_observado)+ 1) / (B+1)
+cat("Valor de P: ", p, "\n")
+
+```
+Otra opcion es ver si el valor nulo esta dentro del intervalo de confianza ya que si no lo esta sabemos que la H0 no se cumple
+
+### Bootstraping para dos muestras independientes
+
 
