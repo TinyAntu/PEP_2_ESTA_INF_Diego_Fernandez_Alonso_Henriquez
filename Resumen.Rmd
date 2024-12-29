@@ -1257,15 +1257,33 @@ Para que sea confiable deben cumplirse los siguientes puntos
 
 2.Los predictores deben ser cuantitativos o dicotomicos
 
+3.Predictores deben tener algun grado de variabilidad. En otras palabras no pueden ser constantes.
 
+4.Cada predictor debe estar relacionado linealmente con la respuesta (Con residualPlots)
 
+5. La distribucion de los residuos debe ser cercana  a la normal centrada en 0
 
+6. La variabilidad de los residuos debe ser aproximadamente constante (homocedasticidad) (ncvTest)
 
+7. Los residuos debe ser independientes entre si (durbinWatsonTest)
 
+8. No debe existir multicolinealidad entre los predictores (Se utiliza vif(modelo) y 1/vif(modelo))
 
+VIF = 1 no hay multicolenealidad
 
+1 < VIF < 5 hay multicolenealidad moderada pero que generalmente no resulta de gran preocupacion
 
+5 < VIF < 10 la multicolenalidad es preocupante y afecta de manera significativa a los resultados
 
+10 < VIF La multicoleneadlidad es severa y debe abordarse pues es pobable que los coeficientes sean inestables
+
+9. Los estimadores de los coeficientes del modelo debe estar alterados por unos pocas observaciones influyentes (influentialPlots)
+
+Problemas : 
+
+HAT = 1
+
+Cook => 1
 
 ## Evaluacion de un clasificador Rlog
 
