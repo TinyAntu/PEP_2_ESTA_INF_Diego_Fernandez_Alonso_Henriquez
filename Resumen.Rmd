@@ -757,7 +757,225 @@ datos <-mtcars|> filter(wt > 2 & wt < 5)
 modelo <- lm(hp ~ disp, data = datos)
 
 print(summary(modelo))
+
+#Usar modelo para predecir
+#potencia_est <- predict(modelo, data.frame(disp))
+
+#Graficar valores predichos
+#nuevo <- data.frame(disp, hp=  potencia_est)
+#g2 <- ggscatter(nuevo, x ="disp", y = "hp",
+                #color = "purple", fill ="purple",
+                #ylab = "Potencia [hp]")
+
+#g2 <- g2+ xlab(bquote("Volumen util de los cilindros" ~ group("[","in"^3]")))
+
 ```
 Concluimos que las variables utilizaras resultan significativas
 
 ## Uso del modelo
+
+El parametro mas importante es el estimado ya que nos dice que por cada pulgada cubica del volumen util de los cilindros en vehiculos que pesan entre 2 y 5 mil libras, la potencia del motor aumenta en promedio 0,50
+
+El cual es estimado del coeficiente, La intercepcion es el valor que se obtendria si el predictor fuese 0.
+
+Hay que tener cuidado con extrapolar los estudios ya que son casos segregados que solo tiene fuerza dentro de su propio contexto.
+
+En R Predict nos permite usar un modelo para predecir valores predict(modelo, valores a estimar) 
+
+## Regresion lineal con un predictor categorico
+
+Para esto haremos uso de variables categorias de 2 niveles (dicotomica) y gracias a las funciones de R no tenemos que realizar modificaciones manuales
+
+```{r}
+library(ggpubr)
+
+datos <- mtcars |>
+  filter(wt > 2 & wt < 5)
+
+#Verificar correlacion
+print(cor(datos[,c("hp","am","vs")]))
+
+#Ajustar modelo
+modelo_vs <- lm(hp~ vs, data =datos)
+print(summary(modelo_vs))
+```
+## Confiabilidad del modelo
+
+Estas comprobaciones se realizan antes de utilizar el modelo, si alguna condicion no se cumple el modelo resulta no confiable
+
+### Bondad de ajuste
+
+Con un mayor R^2 se consigue un modelo con mayor reduccion de la varianza por lo cual mientras mas cerca este del valor de 1 resulta que tiene un mejor ajuste
+
+### Distribucion e independecia
+
+Para determinar esto hace falta realizar un analisis a los graficos de los residuos donde estos deben cumplir con que 
+
+1.Se dsitribuyen aleatoriamente en torno a la linea de valor 0
+
+2.Forman una "banda horizontal" en torno a la linea de valor 0
+
+3.No hay residuos que se alejen del patron que forman los demas
+
+4.No forman un patron reconocible
+
+del paquete car tenemos residualPlots(modelo, type ="pearson) que despliega los graficos de necesarios 
+aparte del analisis humano tenemos que hacer uso de durbinWatsonTest(modelo) para detectar auto correlacion entre los residuos
+
+Otra funcion de diagnostico util es marginalModelPlots(modelo, sd = FALSE)
+
+Con ncvTest(modelo) para verificar si la variabilidad aumenta a medida que el predictor crece
+
+cabe recalclar que si no se Cumple alguna condicion queda la opcion de buscar otras formas de modificarlo y arreglarlo con tecnicas anteriores o bien utilizar otro predictor que no presente estas problematicas
+
+```{r}
+library(car)
+library(dplyr)
+library(ggpubr)
+
+datos <- mtcars |>
+  filter(wt > 2 & wt < 5)
+
+#Modelo de RLS
+
+modelo <- lm(hp ~ disp, data = datos)
+
+#Graficos de residuo y pruebas curvatura
+
+cat("Pruebas de Curvatura:\n")
+residualPlots(modelo, type = "rstandard",
+              id = list(method = "r",n = 3, cex = 0,7, location = "lr"),
+              col ="steelblue", pch  = 20, col.quad ="red")
+
+#Verificar independencia de los residuos
+set.seed(19)
+db <- durbinWatsonTest(modelo)
+cat("Prueba de independencia:\n")
+print(db)
+
+#Graficos marginales
+marginalModelPlots(modelo, sd= TRUE,
+                   id = list(method = "r", n = 3, cex = 0.7, location = "lr"),
+                   col = "steelblue", pch = 20, col.line = c("steelblue", "red"))
+
+# Prueba de la varianza del error no constante
+cat("\n Prueba de homocedasticidad:\n")
+print(ncvTest(modelo))
+
+#Desplegar graficos de influencia
+casos_influyentes <- influencePlot(modelo, id = list(cex = 0.7))
+cat("Casos influyentes:\n")
+print(casos_influyentes)
+
+
+```
+
+
+### Influencia de los valores atipicos
+
+## Calidad predictiva de un modelo RLS
+
+se utilia el MSE
+
+## Generelizacion
+
+Se suele utilizar la validacion cruzada donde los datos iniciales se divide en un conjunto de entrenamiento y otro de prueba donde al terminar de hacer el analisis con los de entrenamiento vemos como se comporta con el conjunto de prueba
+
+```{r}
+
+datos <- mtcars |>
+  filter(wt > 2 & wt < 5)
+n <- nrow(datos)
+
+#Creacion de los conjuntos
+set.seed(101)
+n_entrenamiento <- floor(0.8*n)
+i_entrenamiento <- sample.int(n = n, size = n_entrenamiento, replace = FALSE)
+entrenamiento <- datos[i_entrenamiento, ]
+pruebas <- datos[-i_entrenamiento, ]
+
+#Ajustar y mostrar el modelo
+modelo <- lm(hp ~ disp, data = entrenamiento)
+print(summary(modelo))
+
+#Calcular error cuadrado promedio para el conjunto de entrenamiento
+
+rmse_entrenamiento <- sqrt(mean(resid(modelo)**2))
+cat ("MSE para el conjunto de entrenamiento:", rmse_entrenamiento, "\n")
+
+#Hacer las predicciones para el conjunto de prueba
+
+predicciones <- predict(modelo, newdata = pruebas)
+
+#calcular error cuadratico promedio para la prueba
+error <- pruebas[["hp"]] - predicciones
+rmse_pruebas <- sqrt(mean(error**2))
+cat("MSE para el conjunto de pruebas:", rmse_pruebas, "\n")
+
+```
+Al ser valores parecidos, suguiere que el modelo generaliza bien otros datos
+
+### Validacion cruzada de K pliegues
+
+para esto se utiliza train(formula, method = "lm", trControl = trainControl(method = "cv", number = K)) del paquete caret 
+
+```{r}
+library(caret)
+library(dplyr)
+
+datos <- mtcars |>
+  filter(wt > 2 & wt < 5)
+n <- nrow(datos)
+
+# Ajustar y mostrar el modelo con validacion cruzada de 5 pliegues
+
+set.seed(111)
+entrenamiento <- train(hp ~ disp, data = datos, method = "lm",
+                       trControl = trainControl(method = "cv", number = 5))
+modelo <- entrenamiento[["finalModel"]]
+print(summary(modelo))
+
+#Mostrar los resultados de cada pligue
+cat("Errores en cada pliegue:\n")
+print(entrenamiento[["resample"]])
+
+#Mostrar el resultado estimado para el modelo
+
+cat("Error estimado para el modelo:\n")
+print(entrenamiento[["results"]])
+
+```
+
+Al haber gran variaciones en los pliegues implica que hay cierto valores que su presencia o no, provocan grandes cambios en los coeficientes de la recta de regresion
+
+### Validacion cruzada dejando uno fuera
+
+Cuando la muestra disponible es pequeña resulta util utilizar este metodo
+
+```{r}
+library(caret)
+library(dplyr)
+
+datos <- mtcars |>
+  filter(wt > 2 & wt < 5)
+n <- nrow(datos)
+
+# Ajustar y mostrar el modelo con validacion cruzada de 5 pliegues
+
+set.seed(111)
+entrenamiento <- train(hp ~ disp, data = datos, method = "lm",
+                       trControl = trainControl(method = "LOOCV"))
+modelo <- entrenamiento[["finalModel"]]
+print(summary(modelo))
+
+#Mostrar los resultados de cada pligue
+cat("Predicciones en cada pliegue:\n")
+print(entrenamiento[["pred"]])
+
+#Mostrar el resultado estimado para el modelo
+
+cat("Error estimado para el modelo:\n")
+print(entrenamiento[["results"]])
+
+```
+
